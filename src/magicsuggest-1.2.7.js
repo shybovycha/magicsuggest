@@ -247,6 +247,13 @@
             minChars: 0,
 
             /**
+             * @cfg {Integer} minInputWidth (in px)
+             * <p>Minimum width of the input element where the text of the future tag element will be entered.</p>
+             * Defaults to 200 px.
+             */
+            minInputWidth: 200,
+
+            /**
              * @cfg {Function} minCharsRenderer
              * <p>A function that defines the helper text when not enough letters are set. The function has a single
              *    parameter which is the difference between the required amount of letters and the current one.</p>
@@ -390,6 +397,14 @@
 
 
             /**
+             * @cfg {Boolean} useSpaceKey
+             * <p>If set to true, using space will validate the user's choice</p>
+             * Defaults to <code>false</code>.
+             */
+            useSpaceKey: false,
+
+
+            /**
              * @cfg {Boolean} useZebraStyle
              * <p>Determines whether or not the results will be displayed with a zebra table style</p>
              * Defaults to <code>true</code>.
@@ -446,9 +461,23 @@
                 if (!$.isArray(items)) {
                     items = [items];
                 }
-                var valuechanged = false;
+                var valuechanged = false,
+                    that = this;
                 $.each(items, function(index, json) {
                     if ($.inArray(json[cfg.valueField], ms.getValue()) === -1) {
+                        var event = $.Event('beforeitemadded', { email: json['name'].trim() });
+
+                        $(that.container).trigger(event);
+
+                        if (event.isDefaultPrevented()) {
+                            if (event['message']) {
+                                self._updateHelper(event['message']);
+                                ms.helper.addClass('ms-error-message');
+                            }
+
+                            return;
+                        }
+
                         _selection.push(json);
                         valuechanged = true;
                     }
@@ -786,7 +815,7 @@
                     if(typeof(data) === 'function'){
                         data = data.call(ms);
                     }
-                    if(typeof(data) === 'string' && data.indexOf(',') < 0) { // get results from ajax
+                    if(typeof(data) === 'string' && cfg.data.trim().length > 0 && data.indexOf(',') < 0) { // get results from ajax
                         $(ms).trigger('beforeload', [ms]);
                         var params = $.extend({query: ms.input.val()}, cfg.dataUrlParams);
                         $.ajax({
@@ -847,6 +876,7 @@
                     style: 'width: ' + (w - (cfg.hideTrigger ? 16 : 42)) + 'px;'
                 }, cfg.inputCfg));
 
+                ms.input.addClass('ms-input');
                 ms.input.focus($.proxy(handlers._onInputFocus, this));
                 ms.input.click($.proxy(handlers._onInputClick, this));
 
@@ -1007,9 +1037,12 @@
                 if(cfg.selectionPosition === 'inner') {
                     ms.input.width(0);
                     inputOffset = ms.input.offset().left - ms.selectionContainer.offset().left;
-                    w = ms.container.width() - inputOffset - (cfg.hideTrigger === true ? 0 : 42);
+                    w = Math.max(cfg.minInputWidth, ms.container.width() - inputOffset - (cfg.hideTrigger === true ? 0 : 42));
+
                     ms.input.width(w);
-                    ms.container.height(ms.selectionContainer.height());
+
+                    if (ms.selectionContainer.height() > 0)
+                        ms.container.height(ms.selectionContainer.height());
                 }
 
                 if(_selection.length === cfg.maxSelection){
@@ -1109,6 +1142,7 @@
              * @private
              */
             _updateHelper: function(html) {
+                ms.helper.removeClass('ms-error-message');
                 ms.helper.html(html);
                 if(!ms.helper.is(":visible")) {
                     ms.helper.fadeIn();
@@ -1306,8 +1340,8 @@
                     case 40:case 38: // up, down
                     e.preventDefault();
                     break;
-                    case 13:case 9:case 188:// enter, tab, comma
-                    if(e.keyCode !== 188 || cfg.useCommaKey === true) {
+                    case 13:case 9:case 188:case 32:// enter, tab, comma, space
+                    if((e.keyCode !== 188 && e.keyCode !== 32) || cfg.useCommaKey === true || cfg.useSpaceKey === true) {
                         e.preventDefault();
                         if(cfg.expanded === true){ // if a selection is performed, select it and reset field
                             selected = ms.combobox.find('.ms-res-item-active:first');
