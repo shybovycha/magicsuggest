@@ -306,6 +306,14 @@
             resultAsString: false,
 
             /**
+             * @cfg {Boolean} returnJSON
+             * <p>Set to true if you want the resulting form input' value to be in format "[\"val1\", \"val2\"]".
+             * Set to false if you want the resulting value to be a comma-separated list. E.g.: "val1,val2,val3".</p>
+             * Defaults to <code>false</code>.
+             */
+            returnJSON: false,
+
+            /**
              * @cfg {String} selectionCls
              * <p>A custom CSS class to add to a selected item</p>
              * Defaults to <code>''</code>.
@@ -465,7 +473,12 @@
                     that = this;
                 $.each(items, function(index, json) {
                     if ($.inArray(json[cfg.valueField], ms.getValue()) === -1) {
-                        var event = $.Event('beforeitemadded', { email: json['name'].trim() });
+                        for (var i in json) {
+                            if (json.hasOwnProperty(i))
+                                json[i] = json[i].trim()
+                        }
+
+                        var event = $.Event('beforeitemadded', { tag_data: json['name'] });
 
                         $(that.container).trigger(event);
 
@@ -815,7 +828,7 @@
                     if(typeof(data) === 'function'){
                         data = data.call(ms);
                     }
-                    if(typeof(data) === 'string' && cfg.data.trim().length > 0 && data.indexOf(',') < 0) { // get results from ajax
+                    if(typeof(data) === 'string' && data.trim().length > 0 && data.indexOf(',') < 0) { // get results from ajax
                         $(ms).trigger('beforeload', [ms]);
                         var params = $.extend({query: ms.input.val()}, cfg.dataUrlParams);
                         $.ajax({
@@ -841,7 +854,6 @@
                         }
                     }
                     self._displaySuggestions(self._sortAndTrim(_cbData));
-
                 }
             },
 
@@ -1026,11 +1038,12 @@
                     items.push(selectedItemEl);
                 });
 
+                var returned_value = (cfg.returnJSON) ? JSON.stringify(ms.getValue()) : ms.getValue().join(',');
                 ms.selectionContainer.prepend(items);
                 ms._valueContainer = $('<input/>', {
                     type: 'hidden',
                     name: cfg.name,
-                    value: JSON.stringify(ms.getValue())
+                    value: returned_value
                 });
                 ms._valueContainer.appendTo(ms.selectionContainer);
 
