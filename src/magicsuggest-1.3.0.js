@@ -6,7 +6,7 @@
  *
  * Author: Nicolas Bize
  * Date: Feb. 8th 2013
- * Version: 1.2.6
+ * Version: 1.3.0
  * Licence: MagicSuggest is licenced under MIT licence (http://www.opensource.org/licenses/mit-license.php)
  */
 (function($)
@@ -541,6 +541,7 @@
         {
             this.container.addClass('ms-ctn-disabled');
             cfg.disabled = true;
+            ms.input.attr('disabled', true);
         };
 
         /**
@@ -549,6 +550,7 @@
         this.empty = function(){
             this.input.removeClass(cfg.emptyTextCls);
             this.input.val('');
+            ms.input.attr('disabled', false);
         };
 
         /**
@@ -596,6 +598,14 @@
         this.getDataUrlParams = function()
         {
             return cfg.dataUrlParams;
+        };
+
+        /**
+         * Gets the name given to the form input
+         */
+        this.getName = function()
+        {
+            return cfg.name;
         };
 
         /**
@@ -666,13 +676,34 @@
         };
 
         /**
+         * Sets the name for the input field so it can be fetched in the form
+         * @param name
+         */
+        this.setName = function(name){
+            cfg.name = name;
+            if(ms._valueContainer){
+                ms._valueContainer.name = name;
+            }
+        };
+
+        /**
          * Sets a value for the combo box. Value must be a value or an array of value with data type matching valueField one.
          * @param data
          */
         this.setValue = function(data)
         {
-            var values = $.isArray(data) ? data : [data],
-                items = [];
+            var values = data, items = [];
+            if(!$.isArray(data)){
+                if(typeof(data) === 'string'){
+                    if(data.indexOf('[') > -1){
+                        values = eval(data);
+                    } else if(data.indexOf(',') > -1){
+                        values = data.split(',');
+                    }
+                } else {
+                    values = [data];
+                }
+            }
 
             $.each(_cbData, function(index, obj) {
                 if($.inArray(obj[cfg.valueField], values) > -1) {
@@ -839,6 +870,7 @@
                         data = data.call(ms);
                     }
                     if(typeof(data) === 'string' && data.trim().length > 0 && data.indexOf(',') < 0) { // get results from ajax
+                        console.log('via ajax', data);
                         $(ms).trigger('beforeload', [ms]);
                         var params = $.extend({query: ms.input.val()}, cfg.dataUrlParams);
                         $.ajax({
@@ -846,7 +878,8 @@
                             url: data,
                             data: params,
                             success: function(asyncData){
-                                self._processSuggestions(asyncData);
+                                json = JSON.parse(asyncData);
+                                self._processSuggestions(json);
                                 $(ms).trigger('load', [ms, json]);
                             },
                             error: function(){
@@ -881,8 +914,8 @@
                     'class': 'ms-ctn ' + cfg.cls +
                         (cfg.disabled === true ? ' ms-ctn-disabled' : '') +
                         (cfg.editable === true ? '' : ' ms-ctn-readonly'),
-                    style: 'width: ' + w + 'px;' + cfg.style
-                });
+                    style: cfg.style
+                }).width(w);
                 ms.container.focus($.proxy(handlers._onFocus, this));
                 ms.container.blur($.proxy(handlers._onBlur, this));
                 ms.container.keydown($.proxy(handlers._onKeyDown, this));
@@ -895,9 +928,8 @@
                     'class': cfg.emptyTextCls + (cfg.editable === true ? '' : ' ms-input-readonly'),
                     value: cfg.emptyText,
                     readonly: !cfg.editable,
-                    disabled: cfg.disabled,
-                    style: 'width: ' + (w - (cfg.hideTrigger ? 16 : 42)) + 'px;'
-                }, cfg.inputCfg));
+                    disabled: cfg.disabled
+                }, cfg.inputCfg)).width(w - (cfg.hideTrigger ? 16 : 42));
 
                 ms.input.addClass('ms-input');
                 ms.input.focus($.proxy(handlers._onInputFocus, this));
@@ -917,9 +949,8 @@
                 // holds the suggestions. will always be placed on focus
                 ms.combobox = $('<div/>', {
                     id: 'ms-res-ctn-' + $('div[id^="ms-res-ctn"]').length,
-                    'class': 'ms-res-ctn ',
-                    style: 'width: ' + w + 'px; height: ' + cfg.maxDropHeight + 'px;'
-                });
+                    'class': 'ms-res-ctn '
+                }).width(w).height(cfg.maxDropHeight);
 
                 // bind the onclick and mouseover using delegated events (needs jQuery >= 1.7)
                 ms.combobox.on('click', 'div.ms-res-item', $.proxy(handlers._onComboItemSelected, this));
@@ -1061,31 +1092,31 @@
                 if(cfg.selectionPosition === 'inner') {
                     ms.input.width(0);
                     inputOffset = ms.input.offset().left - ms.selectionContainer.offset().left;
-                    w = Math.max(cfg.minInputWidth, ms.container.width() - inputOffset - (cfg.hideTrigger === true ? 0 : 42));
-
+                    // w = Math.max(cfg.minInputWidth, ms.container.width() - inputOffset - (cfg.hideTrigger === true ? 0 : 42));
+                    w = ms.container.width() - inputOffset - (cfg.hideTrigger === true ? 16 : 42);
                     ms.input.width(w);
 
                     if (ms.selectionContainer.height() > 0)
-                        ms.container.height(ms.selectionContainer.height());
-                }
+                    ms.container.height(ms.selectionContainer.height());
+                    }
 
-                if(_selection.length === cfg.maxSelection){
-                    self._updateHelper(cfg.maxSelectionRenderer.call(this, _selection.length));
-                } else {
-                    ms.helper.hide();
-                }
-            },
+                    if(_selection.length === cfg.maxSelection){
+                        self._updateHelper(cfg.maxSelectionRenderer.call(this, _selection.length));
+                        } else {
+                        ms.helper.hide();
+                        }
+                    },
 
-            /**
-             * Select an item either through keyboard or mouse
-             * @param item
-             * @private
-             */
-            _selectItem: function(item) {
-                if(cfg.maxSelection === 1){
-                    _selection = [];
-                }
-                ms.addToSelection(item.data('json'));
+                    /**
+                    * Select an item either through keyboard or mouse
+                    * @param item
+                    * @private
+                    */
+                    _selectItem: function(item) {
+                        if(cfg.maxSelection === 1){
+                        _selection = [];
+                        }
+                    ms.addToSelection(item.data('json'));
                 item.removeClass('ms-res-item-active');
                 if(cfg.expandOnFocus === false || _selection.length === cfg.maxSelection){
                     ms.collapse();
@@ -1284,7 +1315,7 @@
             /**
              * Triggered when the user presses a key while the component has focus
              * This is where we want to handle all keys that don't require the user input field
-             * since it hasn't registered the key hit yet
+                    * since it hasn't registered the key hit yet
              * @param e keyEvent
              * @private
              */
@@ -1492,7 +1523,7 @@
             });
             var field = new MagicSuggest(this, $.extend(options, def));
             cntr.data('magicSuggest', field);
-
+            field.container.data('magicSuggest', field);
         });
 
         if(obj.size() === 1) {
@@ -1501,3 +1532,4 @@
         return obj;
     };
 })(jQuery);
+
