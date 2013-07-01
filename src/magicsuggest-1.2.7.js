@@ -413,6 +413,14 @@
 
 
             /**
+             * @cfg {Boolean} useSemicolonKey
+             * <p>If set to true, using semicolon will validate the user's choice</p>
+             * Defaults to <code>false</code>.
+             */
+            useSemicolonKey: false,
+
+
+            /**
              * @cfg {Boolean} useZebraStyle
              * <p>Determines whether or not the results will be displayed with a zebra table style</p>
              * Defaults to <code>true</code>.
@@ -748,7 +756,9 @@
                 $.each(data, function(index, s) {
                     var entry = {};
                     entry[cfg.displayField] = entry[cfg.valueField] = $.trim(s);
-                    json.push(entry);
+
+                    if (entry[cfg.valueField].length > 0)
+                        json.push(entry);
                 });
                 return json;
             },
@@ -845,7 +855,8 @@
                         });
                         return;
                     } else if(typeof(data) === 'string' && data.indexOf(',') > -1) { // results from csv string
-                        _cbData = self._getEntriesFromStringArray(data.split(','));
+                        data = data.split(',').filter(function(idx, elt) { return (typeof(elt) === 'string') && (elt.trim().length > 0); });
+                        _cbData = self._getEntriesFromStringArray(data);
                     } else { // results from local array
                         if(data.length > 0 && typeof(data[0]) === 'string') { // results from array of strings
                             _cbData = self._getEntriesFromStringArray(data);
@@ -992,7 +1003,7 @@
                     html += $('<div/>').append(resultItemEl).html();
                 });
                 ms.combobox.html(html);
-                _comboItemHeight = ms.combobox.find('.ms-res-item:first').outerHeight();
+                _comboItemHeight = Math.max.apply(Math, ms.combobox.find('.ms-res-item').map(function(idx, elt) { return $(elt).outerHeight(); }).toArray());
             },
 
             /**
@@ -1299,7 +1310,8 @@
                         }
                         break;
                     case 9: // tab
-                    case 188: // esc
+                    case 188: // comma
+                    case 186: // semicolon
                     case 13: // enter
                         e.preventDefault();
                         break;
@@ -1353,8 +1365,8 @@
                     case 40:case 38: // up, down
                     e.preventDefault();
                     break;
-                    case 13:case 9:case 188:case 32:// enter, tab, comma, space
-                    if((e.keyCode !== 188 && e.keyCode !== 32) || cfg.useCommaKey === true || cfg.useSpaceKey === true) {
+                    case 13:case 9:case 188:case 186:case 32:// enter, tab, comma, semicolon, space
+                    if((e.keyCode !== 186 && e.keyCode !== 188 && e.keyCode !== 32) || cfg.useCommaKey === true || cfg.useSemicolonKey === true || cfg.useSpaceKey === true) {
                         e.preventDefault();
                         if(cfg.expanded === true){ // if a selection is performed, select it and reset field
                             selected = ms.combobox.find('.ms-res-item-active:first');
